@@ -1,52 +1,57 @@
 import { useRef, useState, useMemo } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from "three"
+import { Vector2 } from 'three'
 
-import { fragmentShader } from './fragmentShader'
-import { vertexShader } from './vertexShader'
-import { Vector3 } from 'three'
+export const Particles = ({countParticles, positionRoll, sizeParticle, paralaxParticle = false, speedParticle = .0025}) => {
 
-export const Particles = ({countParticles}) => {
-
-    const radius = 3
     const points = useRef()
-    const [count] = useState(countParticles)
 
     const particlesPosition = useMemo(() => {
 
-        const positions = new Float32Array(count * 3)
+        const position = new Float32Array(countParticles * 3)
         
-        for (let i = 0; i < count; i++) {
+        for (let i = 0; i < countParticles; i++) {
 
-          const distance = Math.sqrt((Math.random() - .1)) * radius
-          const theta = THREE.MathUtils.randFloatSpread(180)
-          const phi = THREE.MathUtils.randFloatSpread(180)
-    
-          let x = distance * Math.sin(theta) * Math.cos(phi)
-          let y = distance * Math.sin(theta) * Math.sin(phi)
-          let z = distance * Math.cos(theta)
+          const distance = Math.sqrt((Math.random())) * 6
+          const theta = THREE.MathUtils.randFloatSpread(10)
+          const phi = THREE.MathUtils.randFloatSpread(10)
 
-          positions.set([x, y, z], i * 3)
+          const x = distance * Math.sin(theta) * Math.cos(phi)
+          const y = distance * Math.sin(theta) * Math.sin(phi)
+          const z = distance * Math.cos(theta)
+
+          position.set([x, y, z], i * 3)
         }
         
-        return positions
-    }, [count]);
+        return position
+    }, [countParticles]);
 
     const uniforms = useMemo(() => ({
         uTime: {
           value: 10
         },
-        uRadius: {
-          value: radius
-        },
     }), [])
     
 
     useFrame((state) => {
-      const { clock, mouse} = state
-      const vector = new Vector3(mouse.x, mouse.y, 0)
+      const { clock, mouse } = state
+      const vector = new Vector2(mouse.x, mouse.y)
+      if(positionRoll === 'horizontall-mouse'){
+        const x = vector.x >= 0 ? vector.x + .5 : vector.x - .5
+        points.current.rotation.y += x * speedParticle
+      }else if (positionRoll === 'vertical-mouse'){
+        const y = vector.y >= 0 ? vector.y + .5 : vector.y - .5
+        points.current.rotation.x += y * speedParticle
+      }else if(positionRoll === 'horizontall'){
+        points.current.rotation.y += speedParticle
+      }else if (positionRoll === 'vertical'){
+        points.current.rotation.x += speedParticle
+      }
+
+      points.current.size = 2
       /// устанавливаем скорость смешения камеры относительно курсора
-      points.current.position.set(vector.x * .15, vector.y * .15, 1)
+      if(paralaxParticle) points.current.position.set(vector.x * .15, vector.y * -.15, 0)
       points.current.material.uniforms.uTime.value = clock.elapsedTime
     })
 
@@ -54,11 +59,11 @@ export const Particles = ({countParticles}) => {
         <bufferGeometry>
         <bufferAttribute
             attach="attributes-position"
-            count={particlesPosition.length / 3}
+            count={particlesPosition.length}
             array={particlesPosition}
             itemSize={4}
         />
         </bufferGeometry>
-        <shaderMaterial depthWrite={true} fragmentShader={fragmentShader} vertexShader={vertexShader} uniforms={uniforms}/>
+        <pointsMaterial size={sizeParticle} color="#FFBF40" depthWrite={false} uniforms={uniforms} />
     </points>
 }
